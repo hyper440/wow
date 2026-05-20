@@ -31,7 +31,7 @@
       }
       .bar {
         display: grid;
-        grid-template-columns: 1fr minmax(220px, 440px) auto;
+        grid-template-columns: 1fr minmax(220px, 440px) auto auto;
         gap: 12px;
         align-items: center;
         padding: 14px 18px;
@@ -42,7 +42,7 @@
         font-weight: 650;
         letter-spacing: 0;
       }
-      input, a.button {
+      input, button, button, a.button {
         height: 36px;
         border: 1px solid var(--line);
         border-radius: 6px;
@@ -54,7 +54,7 @@
         width: 100%;
         padding: 0 10px;
       }
-      a.button {
+      button, a.button {
         padding: 0 10px;
         cursor: pointer;
         text-decoration: none;
@@ -114,6 +114,7 @@
       <div class="bar">
         <h1>Filester Albums</h1>
         <input id="search" type="search" placeholder="Search filename, studio id, or tags" />
+        <button id="copyUrls" type="button">Copy URLs</button>
         <a class="button" href="filester-albums.csv">CSV</a>
       </div>
     </header>
@@ -145,6 +146,7 @@
         search: document.getElementById('search'),
         summary: document.getElementById('summary'),
         updated: document.getElementById('updated'),
+        copyUrls: document.getElementById('copyUrls'),
       };
 
       function parseCsv(text) {
@@ -226,7 +228,17 @@
         els.summary.textContent = `${state.filtered.length.toLocaleString()} of ${state.rows.length.toLocaleString()} files`;
       }
 
+      async function copyFilteredUrls() {
+        const urls = state.filtered
+          .map((row) => row.filesterUrl)
+          .filter((url) => url.trim() !== '');
+        await navigator.clipboard.writeText(urls.join('\n'));
+        const previous = els.copyUrls.textContent;
+        els.copyUrls.textContent = `Copied ${urls.length}`;
+        setTimeout(() => { els.copyUrls.textContent = previous; }, 1400);
+      }
       els.search.addEventListener('input', applyFilter);
+      els.copyUrls.addEventListener('click', copyFilteredUrls);
 
       fetch(`filester-albums.csv?t=${Date.now()}`)
         .then((response) => {
