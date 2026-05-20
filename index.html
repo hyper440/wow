@@ -31,7 +31,7 @@
       }
       .bar {
         display: grid;
-        grid-template-columns: 1fr auto auto;
+        grid-template-columns: 1fr minmax(220px, 440px) auto;
         gap: 12px;
         align-items: center;
         padding: 14px 18px;
@@ -42,12 +42,7 @@
         font-weight: 650;
         letter-spacing: 0;
       }
-      .controls {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-      }
-      input, select, button, a.button {
+      input, a.button {
         height: 36px;
         border: 1px solid var(--line);
         border-radius: 6px;
@@ -56,19 +51,16 @@
         font: inherit;
       }
       input {
-        width: min(440px, 42vw);
+        width: 100%;
         padding: 0 10px;
       }
-      select, button, a.button {
+      a.button {
         padding: 0 10px;
-      }
-      button, a.button {
         cursor: pointer;
         text-decoration: none;
         display: inline-flex;
         align-items: center;
       }
-      button:disabled { opacity: .45; cursor: default; }
       main { padding: 0 18px 18px; }
       .status {
         display: flex;
@@ -87,14 +79,14 @@
       table {
         width: 100%;
         border-collapse: collapse;
-        min-width: 980px;
+        min-width: 1180px;
       }
       th, td {
         border-bottom: 1px solid var(--line);
         padding: 8px 10px;
         text-align: left;
         font-size: 13px;
-        white-space: nowrap;
+        vertical-align: top;
       }
       th {
         position: sticky;
@@ -102,24 +94,17 @@
         background: #182235;
         color: var(--muted);
         font-weight: 600;
+        white-space: nowrap;
       }
-      td:first-child {
+      td { white-space: nowrap; }
+      td:first-child, td:last-child {
         white-space: normal;
-        min-width: 360px;
+        min-width: 320px;
       }
       tr:last-child td { border-bottom: 0; }
       a { color: var(--accent); }
-      .pager {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        justify-content: flex-end;
-        padding: 12px 0 0;
-      }
       @media (max-width: 760px) {
         .bar { grid-template-columns: 1fr; }
-        .controls { flex-wrap: wrap; }
-        input { width: 100%; }
         .status { flex-direction: column; }
       }
     </style>
@@ -128,15 +113,7 @@
     <header>
       <div class="bar">
         <h1>Filester Albums</h1>
-        <div class="controls">
-          <input id="search" type="search" placeholder="Search filename or studio id" />
-          <select id="pageSize">
-            <option value="100">100 rows</option>
-            <option value="250" selected>250 rows</option>
-            <option value="500">500 rows</option>
-            <option value="1000">1000 rows</option>
-          </select>
-        </div>
+        <input id="search" type="search" placeholder="Search filename, studio id, or tags" />
         <a class="button" href="filester-albums.csv">CSV</a>
       </div>
     </header>
@@ -154,28 +131,20 @@
               <th>Duration</th>
               <th>Filester URL</th>
               <th>Studio ID</th>
+              <th>Tags</th>
             </tr>
           </thead>
           <tbody id="rows"></tbody>
         </table>
       </div>
-      <div class="pager">
-        <button id="prev">Prev</button>
-        <span id="page"></span>
-        <button id="next">Next</button>
-      </div>
     </main>
     <script>
-      const state = { rows: [], filtered: [], page: 1, pageSize: 250 };
+      const state = { rows: [], filtered: [] };
       const els = {
         rows: document.getElementById('rows'),
         search: document.getElementById('search'),
-        pageSize: document.getElementById('pageSize'),
         summary: document.getElementById('summary'),
         updated: document.getElementById('updated'),
-        prev: document.getElementById('prev'),
-        next: document.getElementById('next'),
-        page: document.getElementById('page'),
       };
 
       function parseCsv(text) {
@@ -223,46 +192,41 @@
       function applyFilter() {
         const query = els.search.value.trim().toLowerCase();
         state.filtered = query
-          ? state.rows.filter((row) => row.filename.toLowerCase().includes(query) || row.studioId.toLowerCase().includes(query))
+          ? state.rows.filter((row) => row.filename.toLowerCase().includes(query) || row.studioId.toLowerCase().includes(query) || row.tags.toLowerCase().includes(query))
           : state.rows;
-        state.page = 1;
         render();
       }
 
+      function cell(text) {
+        const td = document.createElement('td');
+        td.textContent = text;
+        return td;
+      }
+
       function render() {
-        const totalPages = Math.max(1, Math.ceil(state.filtered.length / state.pageSize));
-        state.page = Math.min(state.page, totalPages);
-        const start = (state.page - 1) * state.pageSize;
-        const pageRows = state.filtered.slice(start, start + state.pageSize);
-        els.rows.replaceChildren(...pageRows.map((row) => {
+        els.rows.replaceChildren(...state.filtered.map((row) => {
           const tr = document.createElement('tr');
-          const cells = [row.filename, formatBytes(row.size), formatDuration(row.duration), row.filesterUrl, row.studioId];
-          for (const cell of cells) {
-            const td = document.createElement('td');
-            if (cell === row.filesterUrl && cell) {
-              const a = document.createElement('a');
-              a.href = cell;
-              a.textContent = cell;
-              a.target = '_blank';
-              a.rel = 'noreferrer';
-              td.append(a);
-            } else {
-              td.textContent = cell;
-            }
-            tr.append(td);
+          tr.append(cell(row.filename));
+          tr.append(cell(formatBytes(row.size)));
+          tr.append(cell(formatDuration(row.duration)));
+          const urlCell = document.createElement('td');
+          if (row.filesterUrl) {
+            const a = document.createElement('a');
+            a.href = row.filesterUrl;
+            a.textContent = row.filesterUrl;
+            a.target = '_blank';
+            a.rel = 'noreferrer';
+            urlCell.append(a);
           }
+          tr.append(urlCell);
+          tr.append(cell(row.studioId));
+          tr.append(cell(row.tags));
           return tr;
         }));
         els.summary.textContent = `${state.filtered.length.toLocaleString()} of ${state.rows.length.toLocaleString()} files`;
-        els.page.textContent = `Page ${state.page} / ${totalPages}`;
-        els.prev.disabled = state.page <= 1;
-        els.next.disabled = state.page >= totalPages;
       }
 
       els.search.addEventListener('input', applyFilter);
-      els.pageSize.addEventListener('change', () => { state.pageSize = Number(els.pageSize.value); state.page = 1; render(); });
-      els.prev.addEventListener('click', () => { state.page--; render(); });
-      els.next.addEventListener('click', () => { state.page++; render(); });
 
       fetch(`filester-albums.csv?t=${Date.now()}`)
         .then((response) => {
@@ -281,6 +245,7 @@
             duration: row[index.duration] || '',
             filesterUrl: row[index['filester url']] || '',
             studioId: row[index['studio id']] || '',
+            tags: row[index.tags] || '',
           }));
           state.filtered = state.rows;
           render();
