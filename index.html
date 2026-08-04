@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Filester Registry</title>
+    <title>Upload Catalog</title>
     <style>
       :root {
         color-scheme: light dark;
@@ -125,16 +125,16 @@
   <body>
     <header>
       <div class="bar">
-        <h1>Filester</h1>
+        <h1>Upload Catalog</h1>
         <input id="search" type="search" placeholder="filename terms  #tag terms  /regex/  #/tag-regex/" spellcheck="false" />
         <button class="help" type="button" title="Plain terms search filenames. Prefix tags with #, e.g. #blonde. Regex works as /pattern/ for filenames and #/pattern/ for tags. Combine terms to require all filters." aria-label="Filtering help">?</button>
-        <button id="copyUrls" type="button">Copy URLs</button>
+        <button id="copyUrls" type="button">Copy links</button>
         <a class="button" href="filester-albums.csv">CSV</a>
       </div>
     </header>
     <main>
       <div class="status">
-        <span id="summary">Loading CSV...</span>
+        <span id="summary">Loading catalog...</span>
         <span id="updated"></span>
       </div>
       <div class="table-wrap">
@@ -144,7 +144,7 @@
               <th>Filename</th>
               <th>Size</th>
               <th>Duration</th>
-              <th>Filester URL</th>
+              <th>Download</th>
               <th>Studio ID</th>
               <th>Tags</th>
             </tr>
@@ -265,6 +265,27 @@
         return td;
       }
 
+      function downloadLink(value) {
+        try {
+          const url = new URL(value);
+          if (url.protocol !== 'https:') return null;
+          const hostname = url.hostname;
+          if (hostname === 'filester.me' || hostname.endsWith('.filester.me')) {
+            return { url: url.href, label: 'Filester' };
+          }
+          if (
+            hostname === 'fileditchfiles.st' ||
+            hostname === 'freakingfileditch.me' ||
+            hostname.endsWith('.freakingfileditch.me')
+          ) {
+            return { url: url.href, label: 'FileDitch' };
+          }
+          return { url: url.href, label: 'Download' };
+        } catch {
+          return null;
+        }
+      }
+
       function render() {
         els.rows.replaceChildren(...state.filtered.map((row) => {
           const tr = document.createElement('tr');
@@ -272,10 +293,12 @@
           tr.append(cell(formatBytes(row.size)));
           tr.append(cell(formatDuration(row.duration)));
           const urlCell = document.createElement('td');
-          if (row.filesterUrl) {
+          const download = downloadLink(row.downloadUrl);
+          if (download) {
             const a = document.createElement('a');
-            a.href = row.filesterUrl;
-            a.textContent = row.filesterUrl;
+            a.href = download.url;
+            a.textContent = download.label;
+            a.title = download.url;
             a.target = '_blank';
             a.rel = 'noreferrer';
             urlCell.append(a);
@@ -292,7 +315,7 @@
 
       async function copyFilteredUrls() {
         const urls = state.filtered
-          .map((row) => row.filesterUrl)
+          .map((row) => row.downloadUrl)
           .filter((url) => url.trim() !== '');
         await navigator.clipboard.writeText(urls.join('\n'));
         const previous = els.copyUrls.textContent;
@@ -318,7 +341,7 @@
             filename: row[index.filename] || '',
             size: row[index.size] || '',
             duration: row[index.duration] || '',
-            filesterUrl: row[index['filester url']] || '',
+            downloadUrl: row[index['filester url']] || '',
             studioId: row[index['studio id']] || '',
             tags: row[index.tags] || '',
           }));
@@ -326,7 +349,7 @@
           render();
         })
         .catch((error) => {
-          els.summary.textContent = `Failed to load CSV: ${error.message}`;
+          els.summary.textContent = `Failed to load catalog: ${error.message}`;
         });
     </script>
   </body>
